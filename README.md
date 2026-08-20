@@ -77,12 +77,13 @@ sample emails in there -- mix of subjects/senders, some with PDF/image
 attachments, a couple that should plausibly hit different categories
 (finance, HR, "other"). **Never point this at your live Inbox.**
 
-### 4. Get an Anthropic API key
+### 4. Get a Gemini API key
 
-Sign up at [console.anthropic.com](https://console.anthropic.com) and
-create an API key. This is billed separately from Microsoft licensing
-and is what performs the classification step in place of Copilot
-Studio's Classify action -- see project notes for why.
+Go to [aistudio.google.com/apikey](https://aistudio.google.com/apikey)
+and create a free key -- no credit card required. This is what performs
+the classification step in place of Copilot Studio's Classify action --
+see project notes for why. The free tier is generous enough to cover
+testing against the sample data many times over.
 
 ### 5. Configure environment
 
@@ -91,8 +92,9 @@ cp env.example.txt .env.example   # if pushing to git, keep this name
 cp env.example.txt .env           # your actual local secrets
 ```
 
-Fill in `MS_CLIENT_ID`, `MS_TENANT_ID`, and `ANTHROPIC_API_KEY` in
-`.env`. `.env` is gitignored -- never commit it.
+Fill in `MS_CLIENT_ID`, `MS_TENANT_ID`, and `GEMINI_API_KEY` in
+`.env`. `.env` is gitignored -- never commit it. For mock mode
+(`npm run start:mock`), only `GEMINI_API_KEY` is needed.
 
 ### 6. Install and run
 

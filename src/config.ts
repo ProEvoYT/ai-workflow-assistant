@@ -38,8 +38,8 @@ export const config = {
   },
   graphScopes: (process.env.GRAPH_SCOPES ?? "Mail.ReadWrite Mail.Read User.Read").split(" "),
   classify: {
-    anthropicApiKey: requireEnv("ANTHROPIC_API_KEY"),
-    model: process.env.CLASSIFY_MODEL ?? "claude-sonnet-4-6",
+    geminiApiKey: requireEnv("GEMINI_API_KEY"),
+    model: process.env.CLASSIFY_MODEL ?? "gemini-2.5-flash",
     confidenceThreshold: Number(process.env.CONFIDENCE_THRESHOLD ?? "0.7"),
   },
 } as const;

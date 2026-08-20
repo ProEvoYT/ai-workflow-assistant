@@ -1,4 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { GoogleGenAI } from "@google/genai";
 import { config } from "./config.js";
 import { VALID_CATEGORIES, resolveDestination } from "./workflowMap.js";
 import type { EmailSummary } from "./graph.js";
@@ -13,7 +13,7 @@ export interface ClassificationResult {
   needsReview: boolean;
 }
 
-const anthropic = new Anthropic({ apiKey: config.classify.anthropicApiKey });
+const ai = new GoogleGenAI({ apiKey: config.classify.geminiApiKey });
 
 function buildPrompt(email: EmailSummary): string {
   const attachmentList =
@@ -71,18 +71,21 @@ function validate(raw: unknown): Omit<ClassificationResult, "destination" | "nee
 }
 
 export async function classifyEmail(email: EmailSummary): Promise<ClassificationResult | null> {
-  const response = await anthropic.messages.create({
+  const response = await ai.models.generateContent({
     model: config.classify.model,
-    max_tokens: 300,
-    messages: [{ role: "user", content: buildPrompt(email) }],
+    contents: buildPrompt(email),
   });
 
-  const textBlock = response.content.find((b) => b.type === "text");
-  if (!textBlock || textBlock.type !== "text") return null;
+  const text = response.text;
+  if (!text) return null;
+
+  // Gemini sometimes wraps JSON in ```json fences despite instructions
+  // not to -- strip them defensively rather than failing the whole run.
+  const cleaned = text.trim().replace(/^```json\s*/i, "").replace(/```\s*$/, "").trim();
 
   let parsed: unknown;
   try {
-    parsed = JSON.parse(textBlock.text.trim());
+    parsed = JSON.parse(cleaned);
   } catch {
     return null;
   }
