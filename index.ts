@@ -1,7 +1,8 @@
 import { config } from "./config.js";
 import { getAccessToken } from "./auth.js";
-import { getMailFolderId, getMessages } from "./graph.js";
+import { getMailFolderId, getMessages, type EmailSummary } from "./graph.js";
 import { classifyEmail } from "./classify.js";
+import { MOCK_EMAILS } from "./mockData.js";
 
 /**
  * MILESTONE 1: authenticate, read real emails.       -- done, see graph.ts
@@ -12,8 +13,19 @@ import { classifyEmail } from "./classify.js";
  *
  * Still does nothing else: no email moves, no file writes, no
  * notifications. That's Milestone 3.
+ *
+ * MOCK MODE: run with `npm run start:mock` to use local sample data
+ * instead of Graph, when Microsoft account/tenant access isn't sorted
+ * out yet. Only this file's data-source branch changes -- classify.ts,
+ * workflowMap.ts, and everything downstream is identical either way, so
+ * swapping back to real auth later is a one-line change, not a rewrite.
  */
-async function main() {
+async function getMessagesForRun(): Promise<EmailSummary[]> {
+  if (process.env.MOCK_MODE === "true") {
+    console.log("Running in MOCK MODE -- using local sample emails, no Microsoft account needed.\n");
+    return MOCK_EMAILS;
+  }
+
   console.log(`Authenticating (tenant: ${config.ms.tenantId})...`);
   const token = await getAccessToken();
   console.log("Authenticated.\n");
@@ -22,7 +34,11 @@ async function main() {
   const folderId = await getMailFolderId(token, config.mail.testFolderName);
 
   console.log("Fetching messages...\n");
-  const messages = await getMessages(token, folderId);
+  return getMessages(token, folderId);
+}
+
+async function main() {
+  const messages = await getMessagesForRun();
 
   if (messages.length === 0) {
     console.log(
