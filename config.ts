@@ -7,6 +7,8 @@ import "dotenv/config";
  * Milestones 1-2's auth, read, and classify behaviour.
  */
 
+const MOCK_MODE = process.env.MOCK_MODE === "true";
+
 function requireEnv(name: string): string {
   const value = process.env[name];
   if (!value) {
@@ -17,9 +19,17 @@ function requireEnv(name: string): string {
   return value;
 }
 
+// In mock mode, Microsoft credentials are never used (no auth, no Graph
+// calls happen), so we don't force the user to have them just to run a
+// local demo.
+function requireEnvUnlessMock(name: string): string {
+  if (MOCK_MODE) return process.env[name] ?? "";
+  return requireEnv(name);
+}
+
 export const config = {
   ms: {
-    clientId: requireEnv("MS_CLIENT_ID"),
+    clientId: requireEnvUnlessMock("MS_CLIENT_ID"),
     tenantId: process.env.MS_TENANT_ID ?? "common",
     authority: `https://login.microsoftonline.com/${process.env.MS_TENANT_ID ?? "common"}`,
   },
