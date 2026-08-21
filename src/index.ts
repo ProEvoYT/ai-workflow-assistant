@@ -3,6 +3,7 @@ import { getAccessToken } from "./auth.js";
 import { getMailFolderId, getMessages, type EmailSummary } from "./graph.js";
 import { classifyEmail } from "./classify.js";
 import { executeActions } from "./actions.js";
+import { RunLog } from "./logger.js";
 import { MOCK_EMAILS } from "./mockData.js";
 
 /**
@@ -12,6 +13,9 @@ import { MOCK_EMAILS } from "./mockData.js";
  *              /unknown categories for review.              -- classify.ts
  * MILESTONE 3: act on it -- move the email, save its
  *              attachments to the resolved destination.      -- actions.ts
+ * MILESTONE 4: generalize (multiple attachments, more edge
+ *              cases -- see mockData.ts) and keep a run log
+ *              + summary instead of only console scroll.     -- logger.ts
  *
  * MOCK MODE: run with `npm run start:mock` to use local sample data and
  * write real local files instead of touching Graph, when Microsoft
@@ -40,6 +44,7 @@ async function getRunContext(): Promise<{ messages: EmailSummary[]; token: strin
 
 async function main() {
   const { messages, token } = await getRunContext();
+  const runLog = new RunLog();
 
   if (messages.length === 0) {
     console.log(
@@ -56,10 +61,20 @@ async function main() {
       `Attachments: ${msg.attachments.length > 0 ? msg.attachments.map((a) => a.name).join(", ") : "none"}`
     );
 
-    const result = await classifyEmail(msg);
+    let result;
+    try {
+      result = await classifyEmail(msg);
+    } catch (err: any) {
+      const message = err.message ?? String(err);
+      console.log(`Classification FAILED: ${message} -- skipping, no action taken`);
+      runLog.recordClassificationFailure(msg, message);
+      continue;
+    }
 
     if (!result) {
-      console.log(`Classification: FAILED (malformed model output, skipping -- no action taken)`);
+      const message = "malformed model output";
+      console.log(`Classification: FAILED (${message}, skipping -- no action taken)`);
+      runLog.recordClassificationFailure(msg, message);
       continue;
     }
 
@@ -76,15 +91,22 @@ async function main() {
       const outcome = await executeActions(msg, result, token);
       console.log(`Filed to:        ${outcome.movedTo}`);
       if (outcome.attachmentsSaved.length > 0) {
-        console.log(`Attachments saved:`);
+        console.log(`Attachments saved (${outcome.attachmentsSaved.length}):`);
         for (const p of outcome.attachmentsSaved) console.log(`  - ${p}`);
       }
+      runLog.recordFiled(msg, result, outcome.movedTo, outcome.attachmentsSaved.length);
     } catch (err: any) {
-      console.log(`Action FAILED:   ${err.message ?? err} (classification stands, filing did not complete)`);
+      const message = err.message ?? String(err);
+      console.log(`Action FAILED:   ${message} (classification stands, filing did not complete)`);
+      runLog.recordActionFailure(msg, result, message);
     }
   }
+
   console.log("──────────────────────────────────────");
-  console.log(`\n${messages.length} message(s) processed.`);
+  runLog.printSummary();
+
+  const logPath = await runLog.writeToDisk(token === null ? "mock" : "real");
+  console.log(`\nRun log written to ${logPath}`);
 }
 
 main().catch((err) => {

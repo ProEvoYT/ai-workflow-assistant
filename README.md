@@ -5,10 +5,11 @@ personal/school mailbox first, structured so it can migrate to an
 enterprise (MTN) environment by editing configuration -- not rewriting
 code.
 
-**Status:** Milestones 1-3 complete (auth + read, classification, filing).
-Verified working end-to-end in mock mode -- real-mode (Graph) actions
-are written and type-checked but not yet run against a live mailbox,
-since Microsoft account/tenant access is still being sorted out.
+**Status:** Milestones 1-4 complete (auth + read, classification,
+filing, generalization + logging). Verified working end-to-end in mock
+mode -- real-mode (Graph) actions are written and type-checked but not
+yet run against a live mailbox, since Microsoft account/tenant access
+is still being sorted out.
 
 ## Architecture
 
@@ -164,20 +165,31 @@ a **configuration change**:
       Verified in mock mode (writes real files to `./mock-output/`,
       gitignored); real-mode Graph actions are written but not yet
       run against a live mailbox.
-- [ ] **Milestone 4** -- generalize across more categories/edge cases;
-      handle multiple attachments per email; basic run logging.
+- [x] **Milestone 4** -- generalized: mock dataset now includes an
+      email with two attachments (proves the filing loop handles more
+      than one), a deliberately vague email to exercise the
+      needs-review path, and a "procurement" category example. Every
+      run also writes a structured JSON log to `./logs/` (gitignored)
+      and prints a summary table (filed / needs-review / failed counts).
 - [ ] **Milestone 5** -- polish for demo: sample dataset, README
       screenshots/output capture, short write-up of the MTN migration path.
 
-## Trying Milestone 3 in mock mode
+## Trying Milestone 3+4 in mock mode
 
 ```bash
 npm run start:mock
 ```
 
-After it runs, check `./mock-output/` -- you'll see folders like
-`Finance/Invoices/`, `HR/Documents/`, etc., each containing a JSON
-record of the email (with its full classification) plus a placeholder
-file per attachment. This is real file I/O, not simulated output --
-proof the destination-resolution and filing logic actually works,
-independent of whether Microsoft access is sorted out yet.
+After it runs, check:
+- `./mock-output/` -- folders like `Finance/Invoices/`, `HR/Documents/`,
+  etc., each containing a JSON record of the email (with its full
+  classification) plus a placeholder file per attachment. Real file
+  I/O, not simulated output.
+- `./logs/` -- one JSON file per run, with every email's outcome
+  (filed / needs-review / classification failed / action failed) and
+  a summary count. This is the audit-trail piece from the original PoC
+  design doc, built early rather than left for later.
+
+The console output also ends with a summary table and lists any
+needs-review items by subject + confidence score, so you don't have to
+scroll back through the full run to see what needs a human look.

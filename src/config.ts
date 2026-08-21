@@ -39,7 +39,10 @@ export const config = {
   graphScopes: (process.env.GRAPH_SCOPES ?? "Mail.ReadWrite Mail.Read User.Read").split(" "),
   classify: {
     geminiApiKey: requireEnv("GEMINI_API_KEY"),
-    model: process.env.CLASSIFY_MODEL ?? "gemini-2.5-flash",
+    model: process.env.CLASSIFY_MODEL ?? "gemini-3.6-flash",
     confidenceThreshold: Number(process.env.CONFIDENCE_THRESHOLD ?? "0.7"),
+    // Free tier is 5 requests/minute for this model as of testing.
+    // Override via env if using a paid tier with a higher limit.
+    maxRequestsPerMinute: Number(process.env.CLASSIFY_MAX_PER_MINUTE ?? "5"),
   },
 } as const;
