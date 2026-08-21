@@ -5,8 +5,10 @@ personal/school mailbox first, structured so it can migrate to an
 enterprise (MTN) environment by editing configuration -- not rewriting
 code.
 
-**Status:** Milestones 1-2 complete (auth + read, classification).
-No writes/actions yet -- see Roadmap below.
+**Status:** Milestones 1-3 complete (auth + read, classification, filing).
+Verified working end-to-end in mock mode -- real-mode (Graph) actions
+are written and type-checked but not yet run against a live mailbox,
+since Microsoft account/tenant access is still being sorted out.
 
 ## Architecture
 
@@ -30,7 +32,9 @@ Workflow map (config)      <- src/workflowMap.ts
 Destination + review flag
       │
       ▼
-[Milestone 3: actions -- move email, save attachment]
+Actions                    <- src/actions.ts
+ (mock: writes to ./mock-output/<destination>/
+  real: Graph move-message + drive upload)
 ```
 
 **Core design principle:** the AI decides *what* something is
@@ -155,9 +159,25 @@ a **configuration change**:
 - [x] **Milestone 2** -- classify each email via LLM into structured JSON;
       resolve destination via config; flag low-confidence/unknown
       categories as needs-review.
-- [ ] **Milestone 3** -- act on the classification: move the email,
+- [x] **Milestone 3** -- act on the classification: move the email,
       extract and save the attachment to the resolved destination.
+      Verified in mock mode (writes real files to `./mock-output/`,
+      gitignored); real-mode Graph actions are written but not yet
+      run against a live mailbox.
 - [ ] **Milestone 4** -- generalize across more categories/edge cases;
       handle multiple attachments per email; basic run logging.
 - [ ] **Milestone 5** -- polish for demo: sample dataset, README
       screenshots/output capture, short write-up of the MTN migration path.
+
+## Trying Milestone 3 in mock mode
+
+```bash
+npm run start:mock
+```
+
+After it runs, check `./mock-output/` -- you'll see folders like
+`Finance/Invoices/`, `HR/Documents/`, etc., each containing a JSON
+record of the email (with its full classification) plus a placeholder
+file per attachment. This is real file I/O, not simulated output --
+proof the destination-resolution and filing logic actually works,
+independent of whether Microsoft access is sorted out yet.

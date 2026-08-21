@@ -17,7 +17,7 @@ export const MOCK_EMAILS: EmailSummary[] = [
     bodyPreview:
       "Please find attached the invoice for services rendered in August. Payment due within 30 days.",
     hasAttachments: true,
-    attachments: [{ name: "invoice-august.pdf", contentType: "application/pdf", size: 84213 }],
+    attachments: [{ id: "mock-att-1", name: "invoice-august.pdf", contentType: "application/pdf", size: 84213 }],
   },
   {
     id: "mock-2",
@@ -36,7 +36,7 @@ export const MOCK_EMAILS: EmailSummary[] = [
     receivedDateTime: "2026-08-14T11:40:00Z",
     bodyPreview: "Attached is the countersigned offer letter for the new Analyst role, start date Sept 1.",
     hasAttachments: true,
-    attachments: [{ name: "offer-letter-jane-doe.pdf", contentType: "application/pdf", size: 51022 }],
+    attachments: [{ id: "mock-att-2", name: "offer-letter-jane-doe.pdf", contentType: "application/pdf", size: 51022 }],
   },
   {
     id: "mock-4",
@@ -55,6 +55,6 @@ export const MOCK_EMAILS: EmailSummary[] = [
     bodyPreview:
       "The annual contract with our cloud provider is up for renewal. Please review the attached redline before Thursday.",
     hasAttachments: true,
-    attachments: [{ name: "contract-redline.docx", contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", size: 39877 }],
+    attachments: [{ id: "mock-att-3", name: "contract-redline.docx", contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", size: 39877 }],
   },
 ];

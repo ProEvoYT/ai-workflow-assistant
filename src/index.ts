@@ -2,28 +2,28 @@ import { config } from "./config.js";
 import { getAccessToken } from "./auth.js";
 import { getMailFolderId, getMessages, type EmailSummary } from "./graph.js";
 import { classifyEmail } from "./classify.js";
+import { executeActions } from "./actions.js";
 import { MOCK_EMAILS } from "./mockData.js";
 
 /**
- * MILESTONE 1: authenticate, read real emails.       -- done, see graph.ts
- * MILESTONE 2: classify each email into structured
- *              JSON via an LLM, resolve a destination
- *              from config, flag low-confidence /
- *              unknown categories for review.          -- this file
+ * MILESTONE 1: authenticate, read real emails.            -- graph.ts
+ * MILESTONE 2: classify each email into structured JSON,
+ *              resolve a destination, flag low-confidence
+ *              /unknown categories for review.              -- classify.ts
+ * MILESTONE 3: act on it -- move the email, save its
+ *              attachments to the resolved destination.      -- actions.ts
  *
- * Still does nothing else: no email moves, no file writes, no
- * notifications. That's Milestone 3.
- *
- * MOCK MODE: run with `npm run start:mock` to use local sample data
- * instead of Graph, when Microsoft account/tenant access isn't sorted
- * out yet. Only this file's data-source branch changes -- classify.ts,
- * workflowMap.ts, and everything downstream is identical either way, so
- * swapping back to real auth later is a one-line change, not a rewrite.
+ * MOCK MODE: run with `npm run start:mock` to use local sample data and
+ * write real local files instead of touching Graph, when Microsoft
+ * account/tenant access isn't sorted out yet. Only the data-source and
+ * action-target branches change -- classify.ts and workflowMap.ts are
+ * identical either way, so swapping back to real auth/Graph later is a
+ * one-line change per branch, not a rewrite.
  */
-async function getMessagesForRun(): Promise<EmailSummary[]> {
+async function getRunContext(): Promise<{ messages: EmailSummary[]; token: string | null }> {
   if (process.env.MOCK_MODE === "true") {
     console.log("Running in MOCK MODE -- using local sample emails, no Microsoft account needed.\n");
-    return MOCK_EMAILS;
+    return { messages: MOCK_EMAILS, token: null };
   }
 
   console.log(`Authenticating (tenant: ${config.ms.tenantId})...`);
@@ -34,11 +34,12 @@ async function getMessagesForRun(): Promise<EmailSummary[]> {
   const folderId = await getMailFolderId(token, config.mail.testFolderName);
 
   console.log("Fetching messages...\n");
-  return getMessages(token, folderId);
+  const messages = await getMessages(token, folderId);
+  return { messages, token };
 }
 
 async function main() {
-  const messages = await getMessagesForRun();
+  const { messages, token } = await getRunContext();
 
   if (messages.length === 0) {
     console.log(
@@ -58,7 +59,7 @@ async function main() {
     const result = await classifyEmail(msg);
 
     if (!result) {
-      console.log(`Classification: FAILED (malformed model output, skipping)`);
+      console.log(`Classification: FAILED (malformed model output, skipping -- no action taken)`);
       continue;
     }
 
@@ -70,6 +71,17 @@ async function main() {
     console.log(
       `Destination:     ${result.needsReview ? `${result.destination} (⚠ NEEDS REVIEW)` : result.destination}`
     );
+
+    try {
+      const outcome = await executeActions(msg, result, token);
+      console.log(`Filed to:        ${outcome.movedTo}`);
+      if (outcome.attachmentsSaved.length > 0) {
+        console.log(`Attachments saved:`);
+        for (const p of outcome.attachmentsSaved) console.log(`  - ${p}`);
+      }
+    } catch (err: any) {
+      console.log(`Action FAILED:   ${err.message ?? err} (classification stands, filing did not complete)`);
+    }
   }
   console.log("──────────────────────────────────────");
   console.log(`\n${messages.length} message(s) processed.`);

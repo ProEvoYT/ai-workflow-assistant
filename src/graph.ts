@@ -7,7 +7,7 @@ export interface EmailSummary {
   receivedDateTime: string;
   bodyPreview: string;
   hasAttachments: boolean;
-  attachments: { name: string; contentType: string; size: number }[];
+  attachments: { id: string; name: string; contentType: string; size: number }[];
 }
 
 async function graphGet(path: string, token: string) {
@@ -19,6 +19,19 @@ async function graphGet(path: string, token: string) {
     throw new Error(`Graph GET ${path} failed: ${res.status} ${body}`);
   }
   return res.json();
+}
+
+async function graphSend(path: string, token: string, method: "POST" | "PUT", body: BodyInit, contentType: string) {
+  const res = await fetch(`${GRAPH_BASE}${path}`, {
+    method,
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": contentType },
+    body,
+  });
+  if (!res.ok) {
+    const responseBody = await res.text();
+    throw new Error(`Graph ${method} ${path} failed: ${res.status} ${responseBody}`);
+  }
+  return res.status === 204 ? null : res.json();
 }
 
 /**
@@ -59,10 +72,11 @@ export async function getMessages(token: string, folderId: string, top = 10): Pr
 
     if (msg.hasAttachments) {
       const attData = await graphGet(
-        `/me/messages/${msg.id}/attachments?$select=name,contentType,size`,
+        `/me/messages/${msg.id}/attachments?$select=id,name,contentType,size`,
         token
       );
       attachments = (attData.value ?? []).map((a: any) => ({
+        id: a.id,
         name: a.name,
         contentType: a.contentType,
         size: a.size,
@@ -81,4 +95,80 @@ export async function getMessages(token: string, folderId: string, top = 10): Pr
   }
 
   return messages;
+}
+
+/**
+ * MILESTONE 3 additions below. These are real-mode actions -- written
+ * and type-checked, but not yet run against a live mailbox since
+ * Microsoft account/tenant access is still blocked. Mock mode
+ * (see actions.ts) proves the same *logic* (destination resolution,
+ * file writing) without depending on these actually working yet.
+ * When Microsoft access clears, testing these is the very next step --
+ * the rest of the app doesn't need to change to exercise them.
+ */
+
+/**
+ * Resolves a slash-separated destination (e.g. "Finance/Invoices") to a
+ * mail folder ID, creating any missing segments along the way. Nested
+ * under the mailbox root via Graph's well-known "msgfolderroot" alias.
+ */
+export async function getOrCreateFolderPath(token: string, folderPath: string): Promise<string> {
+  const segments = folderPath.split("/").filter(Boolean);
+  let parentId = "msgfolderroot";
+
+  for (const segment of segments) {
+    const existing = await graphGet(
+      `/me/mailFolders/${parentId}/childFolders?$filter=displayName eq '${encodeURIComponent(segment)}'`,
+      token
+    );
+    let folder = existing.value?.[0];
+
+    if (!folder) {
+      folder = await graphSend(
+        `/me/mailFolders/${parentId}/childFolders`,
+        token,
+        "POST",
+        JSON.stringify({ displayName: segment }),
+        "application/json"
+      );
+    }
+
+    parentId = folder.id;
+  }
+
+  return parentId;
+}
+
+export async function moveMessage(token: string, messageId: string, destinationFolderId: string): Promise<void> {
+  await graphSend(
+    `/me/messages/${messageId}/move`,
+    token,
+    "POST",
+    JSON.stringify({ destinationId: destinationFolderId }),
+    "application/json"
+  );
+}
+
+/** Fetches an attachment's content as a base64 string. */
+export async function getAttachmentContent(token: string, messageId: string, attachmentId: string): Promise<string> {
+  const data = await graphGet(`/me/messages/${messageId}/attachments/${attachmentId}`, token);
+  return data.contentBytes;
+}
+
+/**
+ * Uploads a file to the signed-in user's OneDrive at the given folder
+ * path, creating folders as needed (Graph does this automatically for
+ * this endpoint). MTN's version of this would likely target a
+ * SharePoint site/library drive ID instead of "/me/drive" -- that's a
+ * one-line change to the base path, not a rewrite.
+ */
+export async function uploadFileToDrive(
+  token: string,
+  folderPath: string,
+  fileName: string,
+  contentBase64: string
+): Promise<void> {
+  const bytes = Buffer.from(contentBase64, "base64");
+  const path = `${folderPath}/${fileName}`.split("/").map(encodeURIComponent).join("/");
+  await graphSend(`/me/drive/root:/${path}:/content`, token, "PUT", bytes, "application/octet-stream");
 }
